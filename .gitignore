@@ -1,0 +1,14 @@
+# Python venv and caches
+venv/
+__pycache__/
+*.pyc
+
+# Data
+data/raw/
+data/processed/
+data/models/
+
+# System / editor files
+.DS_Store
+.env
+
