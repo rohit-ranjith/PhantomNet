@@ -1,10 +1,20 @@
+import os
 import pandas as pd
 
-# Load session-level data
-df = pd.read_csv("../data/processed/sessions.csv")
+# Get the project root directory (parent of ml/)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 
-# Basic cleanup
-df["login_success"] = df["login_success"].astype(int)
+DATA_DIR = os.path.join(PROJECT_ROOT, "data/processed")
+
+# Load session-level data
+df = pd.read_csv(os.path.join(DATA_DIR, "sessions.csv"))
+
+# Basic cleanup - convert login_success to int (handles bool, int, or string)
+if "login_success" in df.columns:
+    df["login_success"] = df["login_success"].astype(bool).astype(int)
+else:
+    df["login_success"] = 0
 
 # Aggregate by source IP
 attackers = df.groupby("src_ip").agg(
@@ -23,6 +33,6 @@ attackers = df.groupby("src_ip").agg(
 attackers = attackers.fillna(0)
 
 # Save
-attackers.to_csv("../data/processed/attackers.csv", index=False)
+attackers.to_csv(os.path.join(DATA_DIR, "attackers.csv"), index=False)
 
 print(f"[+] Generated attacker profiles: {len(attackers)}")

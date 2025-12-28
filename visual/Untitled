@@ -1,0 +1,131 @@
+import os
+import pandas as pd
+import matplotlib.pyplot as plt
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+SESSIONS_CSV = os.path.join(PROJECT_ROOT, "data/processed/sessions.csv")
+ATTACKERS_CSV = os.path.join(PROJECT_ROOT, "data/processed/attackers.csv")
+LABELED_CSV = os.path.join(PROJECT_ROOT, "data/processed/attackers_labeled.csv")
+SCORES_CSV = os.path.join(PROJECT_ROOT, "data/processed/anomaly_scores.csv")
+
+OUT_DIR = os.path.join(PROJECT_ROOT, "outputs/figures")
+os.makedirs(OUT_DIR, exist_ok=True)
+
+def savefig(name: str):
+    path = os.path.join(OUT_DIR, name)
+    plt.tight_layout()
+    plt.savefig(path, dpi=200)
+    plt.close()
+    print(f"[+] Wrote {path}")
+
+def main():
+    # ---------- Load data ----------
+    sessions = pd.read_csv(SESSIONS_CSV)
+    attackers = pd.read_csv(ATTACKERS_CSV) if os.path.exists(ATTACKERS_CSV) else None
+    labeled = pd.read_csv(LABELED_CSV) if os.path.exists(LABELED_CSV) else None
+    scores = pd.read_csv(SCORES_CSV) if os.path.exists(SCORES_CSV) else None
+
+    # Normalize timestamps (safe if already string)
+    if "start_time" in sessions.columns:
+        sessions["start_time"] = pd.to_datetime(sessions["start_time"], errors="coerce", utc=True)
+    if "end_time" in sessions.columns:
+        sessions["end_time"] = pd.to_datetime(sessions["end_time"], errors="coerce", utc=True)
+
+    # ---------- FIG 1: Sessions per day ----------
+    if "start_time" in sessions.columns:
+        per_day = sessions.dropna(subset=["start_time"]).copy()
+        per_day["day"] = per_day["start_time"].dt.date
+        counts = per_day.groupby("day")["session_id"].count().sort_index()
+
+        plt.figure()
+        counts.plot(kind="bar")
+        plt.xlabel("Day (UTC)")
+        plt.ylabel("Number of sessions")
+        plt.title("Cowrie sessions per day")
+        savefig("fig1_sessions_per_day.png")
+
+    # ---------- FIG 2: Session duration distribution ----------
+    if "duration_seconds" in sessions.columns:
+        d = sessions["duration_seconds"].fillna(0)
+        # clamp huge outliers for readability (still keeps distribution)
+        d_plot = d.clip(upper=d.quantile(0.99) if len(d) > 10 else d.max())
+
+        plt.figure()
+        plt.hist(d_plot, bins=30)
+        plt.xlabel("Session duration (seconds)")
+        plt.ylabel("Count")
+        plt.title("Distribution of session durations (clipped at 99th percentile)")
+        savefig("fig2_duration_distribution.png")
+
+    # ---------- FIG 3: Login success rate (session-level) ----------
+    if "login_success" in sessions.columns:
+        rate = sessions["login_success"].fillna(False).mean()
+
+        plt.figure()
+        plt.bar(["login_success_rate"], [rate])
+        plt.ylim(0, 1)
+        plt.ylabel("Rate")
+        plt.title("Overall login success rate (session-level)")
+        savefig("fig3_login_success_rate.png")
+
+    # ---------- FIG 4: Top source IPs by session count ----------
+    if "src_ip" in sessions.columns:
+        top = sessions.groupby("src_ip")["session_id"].count().sort_values(ascending=False).head(10)
+
+        plt.figure()
+        top.sort_values().plot(kind="barh")
+        plt.xlabel("Sessions")
+        plt.ylabel("Source IP")
+        plt.title("Top 10 source IPs by session count")
+        savefig("fig4_top_ips_by_sessions.png")
+
+    # ---------- FIG 5: Client versions (top 10) ----------
+    if "client_version" in sessions.columns:
+        cv = sessions["client_version"].fillna("UNKNOWN")
+        top_cv = cv.value_counts().head(10)
+
+        plt.figure()
+        top_cv.sort_values().plot(kind="barh")
+        plt.xlabel("Count")
+        plt.ylabel("Client version")
+        plt.title("Top SSH client versions observed")
+        savefig("fig5_top_client_versions.png")
+
+    # ---------- FIG 6: Heuristic label breakdown (attacker-level) ----------
+    if labeled is not None and "heuristic_label" in labeled.columns:
+        counts = labeled["heuristic_label"].fillna("unknown").value_counts()
+
+        plt.figure()
+        counts.plot(kind="bar")
+        plt.xlabel("Heuristic label")
+        plt.ylabel("Number of source IPs")
+        plt.title("Attacker types (heuristic labels)")
+        savefig("fig6_heuristic_label_breakdown.png")
+
+    # ---------- FIG 7 (optional): ML anomaly score distribution ----------
+    if scores is not None and "anomaly_score" in scores.columns:
+        s = scores["anomaly_score"].dropna()
+
+        plt.figure()
+        plt.hist(s, bins=25)
+        plt.xlabel("Isolation Forest decision_function score")
+        plt.ylabel("Count")
+        plt.title("Anomaly score distribution (higher = more normal)")
+        savefig("fig7_anomaly_score_distribution.png")
+
+        # Top most “anomalous” (lowest score)
+        if "src_ip" in scores.columns:
+            top_bad = scores.sort_values("anomaly_score").head(10).set_index("src_ip")["anomaly_score"]
+
+            plt.figure()
+            top_bad.sort_values().plot(kind="barh")
+            plt.xlabel("Anomaly score (lower = more anomalous)")
+            plt.ylabel("Source IP")
+            plt.title("Top 10 most anomalous source IPs (Isolation Forest)")
+            savefig("fig8_top_anomalous_ips.png")
+
+    print("[+] Done generating figures.")
+
+if __name__ == "__main__":
+    main()

@@ -1,8 +1,15 @@
+import os
 import pandas as pd
 from sklearn.ensemble import IsolationForest
 
-INPUT = "../data/processed/feature_matrix.csv"
-OUTPUT = "../data/processed/anomaly_scores.csv"
+# Get the project root directory (parent of ml/)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+
+DATA_DIR = os.path.join(PROJECT_ROOT, "data/processed")
+
+INPUT = os.path.join(DATA_DIR, "feature_matrix.csv")
+OUTPUT = os.path.join(DATA_DIR, "anomaly_scores.csv")
 
 def main():
     df = pd.read_csv(INPUT)

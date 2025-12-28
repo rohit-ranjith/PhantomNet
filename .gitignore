@@ -8,6 +8,9 @@ data/raw/
 data/processed/
 data/models/
 
+# collector shell
+collector/pull_cowrie_logs.sh
+
 # System / editor files
 .DS_Store
 .env
