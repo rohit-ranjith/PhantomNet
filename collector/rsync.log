@@ -437,3 +437,34 @@ Host key for 130.33.97.184 has changed and you have requested strict checking.
 Host key verification failed.
 rsync: connection unexpectedly closed (0 bytes received so far) [Receiver]
 rsync error: unexplained error (code 255) at io.c(232) [Receiver=3.2.7]
+receiving incremental file list
+./
+cowrie_2025-12-28_00-30.json
+cowrie_2025-12-28_01-00.json
+
+sent 69 bytes  received 238,552 bytes  53,026.89 bytes/sec
+total size is 1,839,331  speedup is 7.71
+receiving incremental file list
+./
+cowrie_2025-12-28_01-30.json
+
+sent 50 bytes  received 524,011 bytes  116,458.00 bytes/sec
+total size is 2,358,284  speedup is 4.50
+receiving incremental file list
+./
+cowrie_2025-12-28_02-00.json
+
+sent 50 bytes  received 737,875 bytes  134,168.18 bytes/sec
+total size is 3,091,020  speedup is 4.19
+receiving incremental file list
+./
+cowrie_2025-12-28_02-30.json
+
+sent 50 bytes  received 1,684,435 bytes  374,330.00 bytes/sec
+total size is 4,770,059  speedup is 2.83
+ssh: connect to host 130.33.97.184 port 22222: Connection timed out
+rsync: connection unexpectedly closed (0 bytes received so far) [Receiver]
+rsync error: unexplained error (code 255) at io.c(232) [Receiver=3.2.7]
+ssh: connect to host 130.33.97.184 port 22222: Connection timed out
+rsync: connection unexpectedly closed (0 bytes received so far) [Receiver]
+rsync error: unexplained error (code 255) at io.c(232) [Receiver=3.2.7]
