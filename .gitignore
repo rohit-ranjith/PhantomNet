@@ -10,6 +10,7 @@ data/models/
 
 # collector shell
 collector/pull_cowrie_logs.sh
+collector/rsync.log
 
 # System / editor files
 .DS_Store
