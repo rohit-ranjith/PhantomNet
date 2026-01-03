@@ -1,4 +1,5 @@
 #!/bin/bash
+#I had this running as a cronjob
 
 AZURE_USER="azureuser"
 AZURE_IP="azure vm public ip"
