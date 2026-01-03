@@ -1,6 +1,6 @@
 # PhantomNet — Cloud-Based SSH Honeynet & Behavioral Analysis
 
-PhantomNet is a small-scale honeynet project I built to better understand how real SSH attacks look in practice and how security teams might analyze them at a session and behavioral level. As a student interested in SOC operations and entry-level cybersecurity roles, I wanted something more realistic than simulated logs, but still safe to deploy, observe, and analyze.
+PhantomNet is a small-scale honeynet project I built to better understand how real SSH attacks look in practice and how security teams might analyze them at a session and behavioral level. As a student interested in SOC operations, I wanted something more realistic than simulated logs, but still safe to deploy, observe, and analyze.
 
 The core idea is simple: expose an intentionally vulnerable SSH service on the public internet, collect real attacker interaction data, and analyze that data using session-level features, heuristics, and unsupervised machine learning.
 
@@ -8,7 +8,7 @@ Over time, the project evolved into a Dockerized SSH honeypot running in Azure w
 
 ## Project Motivation
 
-Most SSH attacks on the internet are automated, fast, and repetitive. By deploying a Cowrie honeypot on a cloud VM and allowing it to listen on the default SSH port (22), I was able to observe real-world credential stuffing attempts, scanning behavior, and occasional interactive sessions.
+By deploying a Cowrie honeypot on a cloud VM and allowing it to listen on the default SSH port (22), I was able to observe real-world credential stuffing attempts, scanning behavior, and occasional interactive sessions.
 
 Instead of blocking or mitigating these attacks, the goal of this project is to study attacker behavior, focusing on questions such as:
 
@@ -29,7 +29,7 @@ Instead of blocking or mitigating these attacks, the goal of this project is to 
 
 ### Honeypot Layer
 
-- **Cowrie SSH honeypot** running inside Docker
+- Cowrie SSH honeypot running inside Docker
 - Safe emulation of SSH interaction (no real system access)
 - Structured JSON event logs generated for every attacker interaction
 
