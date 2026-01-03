@@ -1,202 +1,136 @@
-# PhantomNet
-Cloud honeynet for botnet behavior analysis
+# PhantomNet — Cloud-Based SSH Honeynet & Behavioral Analysis
 
-PhantomNet is my personal security research project that deploys a cloud-based SSH honeypot to collect real-world attack telemetry and performs offline behavioral analysis and machine learning to characterize attacker behavior.
+PhantomNet is a small-scale honeynet project I built to better understand how real SSH attacks look in practice and how security teams might analyze them at a session and behavioral level. As a student interested in SOC operations and entry-level cybersecurity roles, I wanted something more realistic than simulated logs, but still safe to deploy, observe, and analyze.
 
-The project intentionally separates data collection from data analysis, mirroring real-world SOC and threat intelligence architectures. A public-facing cloud VM captures unsolicited attack traffic, while a local, isolated VM performs parsing, feature engineering, and analysis.
+The core idea is simple: expose an intentionally vulnerable SSH service on the public internet, collect real attacker interaction data, and analyze that data using session-level features, heuristics, and unsupervised machine learning.
 
-Internet Attackers
-        |
-        v
-Azure VM (Public)
-└── Docker
-    └── Cowrie SSH Honeypot
-        └── cowrie.json logs
-                |
-                | (manual SCP for now)
-                v
-Local Ubuntu VM (Private)
-└── phantomnet/
-    ├── collector/
-    ├── ml/
-    ├── data/
-    │   ├── raw/
-    │   └── processed/
-    ├── dashboard/
-    ├── venv/
-    └── README.md
+Over time, the project evolved into a Dockerized SSH honeypot running in Azure with an automated, pull-based data collection and analysis pipeline.
 
+## Project Motivation
 
-Design Rationale
+Most SSH attacks on the internet are automated, fast, and repetitive. By deploying a Cowrie honeypot on a cloud VM and allowing it to listen on the default SSH port (22), I was able to observe real-world credential stuffing attempts, scanning behavior, and occasional interactive sessions.
 
-Security-first design: The honeypot is treated as compromised by default; no analysis occurs on the cloud VM.
+Instead of blocking or mitigating these attacks, the goal of this project is to study attacker behavior, focusing on questions such as:
 
-Realistic SOC workflow: Collection, normalization, and analysis are decoupled.
+- How often do attackers connect to an exposed SSH service?
+- How long do attack sessions typically last?
+- How frequently do login attempts succeed?
+- What SSH clients and tools are commonly used?
+- Which behaviors stand out as anomalous?
 
-Scalability: Analysis tooling can evolve independently of the honeypot.
+## Architecture Overview
 
-Research realism: Captures unsolicited, real-world attack traffic rather than simulated data.
+### Cloud Environment
 
-Environments:
------------------
-Azure VM — Collection Layer
+- **Azure Ubuntu VM**
+- Network Security Groups (NSGs) to tightly control exposed ports
+- Administrative SSH moved to a non-standard port
+- Cowrie honeypot bound to port 22 for realistic exposure
 
-Purpose
-Exposed to the public internet to attract real SSH attacks.
-Collects raw telemetry only.
+### Honeypot Layer
 
-Key Details
-OS: Ubuntu 22.04
-Cloud provider: Microsoft Azure
-Containerization: Docker
-Honeypot: Cowrie SSH
-Exposed port: 2222/tcp
-Authentication: Fake credentials (Cowrie-managed)
+- **Cowrie SSH honeypot** running inside Docker
+- Safe emulation of SSH interaction (no real system access)
+- Structured JSON event logs generated for every attacker interaction
 
-Data Collected
-Source IP addresses
-SSH client banners and fingerprints (HASSH)
-Authentication attempts (password / public key)
-Executed commands
-Session duration and activity
-Protocol misuse and malformed traffic
+### Data Pipeline
 
-------------
-Local Ubuntu VM — Analysis Layer
+- Snapshot-based log extraction from the Cowrie container
+- Pull-based log transfer from the Azure VM to a private analysis machine
+- Python-based parsing and feature extraction
+- CSV-based intermediate datasets for transparency and debugging
 
-Purpose
-Safe environment for data processing and analysis.
-No direct exposure to the internet.
+This design keeps the exposed VM minimal and reduces risk by avoiding analysis code or credentials on public-facing infrastructure.
 
-Directory Structure
-phantomnet/
-├── collector/        # Future: automated log ingestion
-├── ml/               # Parsing, feature engineering, ML
-├── data/
-│   ├── raw/          # Raw cowrie.json files
-│   └── processed/    # CSVs and engineered datasets
-├── dashboard/        # Future visualizations
-├── venv/             # Python virtual environment
-└── README.md
+## Automation and Data Collection
 
+To avoid manual log handling, I implemented a lightweight automation workflow:
 
-Data Flow
+1. A scheduled job on the Azure VM periodically extracts Cowrie's JSON logs from the Docker container
+2. Each snapshot is timestamped and stored locally on the VM
+3. A pull-based sync from my private analysis environment retrieves new snapshots
+4. Logs are parsed into session-level records for analysis
 
-Cowrie logs SSH activity to:
-/cowrie/cowrie-git/var/log/cowrie/cowrie.json
+This pull-based approach mirrors real SOC workflows and avoids pushing data outward from an exposed system.
 
+## Detection and Analysis Approach
 
-Logs are copied from the Azure VM to the local Ubuntu VM using scp.
-Python scripts parse and normalize the logs into structured datasets.
-Processed data is used for behavioral analysis and machine learning.
-Note: Log transfer is currently manual by design. Automation is planned for a later phase.
+Rather than relying on signatures alone, this project focuses on behavioral analysis at the SSH session level.
 
+### Feature Extraction
 
-Implemented Analysis Script
-parsecowrie.py
+Each SSH session is summarized using explainable features such as:
 
-Location
+- Source IP address
+- Session duration
+- Number of login attempts
+- Login success or failure
+- Number of commands issued
+- SSH client version
+- Indicators of protocol misuse
 
-phantomnet/ml/parsecowrie.py
+Each row in the resulting dataset represents one attacker session.
 
+### Heuristic Labeling
 
-Purpose
-Parse Cowrie JSON logs into structured, session-level data.
+Simple, conservative rules are used to group sessions into rough behavioral categories:
 
-Extracted Fields:
-Session ID
-Source IP
-Session start and end time
-Session duration
-Number of commands executed
-Login attempts and success
-SSH client version
-HASSH fingerprint
-Protocol anomalies
+- **Credential stuffing**
+- **Scanning / background noise**
+- **Interactive attackers**
+- **Unknown behavior**
 
-Output
-phantomnet/data/processed/sessions.csv
+These labels are intentionally conservative and provide context rather than ground truth.
 
-Technologies Used
-Cloud: Microsoft Azure
-OS: Ubuntu 22.04
-Containerization: Docker
-Honeypot: Cowrie SSH
-Language: Python 3.11
-Data Processing: pandas
-Machine Learning (planned): scikit-learn
-Development: Cursor, Linux CLI
+### Unsupervised Machine Learning (Isolation Forest)
 
-Project Goals:
-Capture real-world SSH attack behavior
-Engineer behavioral features from honeypot sessions
-Distinguish automated bot activity from interactive attackers
-Apply unsupervised ML techniques for attacker classification
-Build a modular, extensible threat analysis pipeline
+An Isolation Forest model is trained on session-level features to identify anomalous behavior. The goal is not perfect classification, but to surface sessions that behave differently from the majority—such as unusually long interactions, abnormal command patterns, or unexpected timing.
 
-Roadmap
-Behavioral analysis and attacker profiling
-Visualization and dashboards
-Machine learning–based clustering and anomaly detection
-Automated log ingestion
-Expanded honeynet surface (additional services)
+## Visualization and Results
 
-Project Checklist
-✅ Completed
-Infrastructure
- Azure VM provisioned and secured
- Docker installed and verified
- Cowrie SSH honeypot deployed in Docker
- Honeypot exposed to public internet
- Confirmed real attack traffic
+After running the honeypot on port 22 for approximately one day, several realistic patterns emerged:
 
-Data Collection
- Cowrie JSON logging enabled
- Logs persisted inside container
- Logs successfully copied off Azure VM
+- A rapid surge in SSH sessions shortly after exposure
+- Very short session durations dominating the dataset
+- A measurable login success rate consistent with known Cowrie behavior
+- Heavy reuse of Go-based SSH clients commonly associated with botnets
+- A small subset of IPs responsible for a large fraction of sessions
+- Clear behavioral outliers identified by the anomaly detection model
 
-Local Analysis Setup
- Local Ubuntu VM configured
- Python virtual environment created
- pandas installed and verified
- Project directory structure created
- Cursor selected as development environment
+These observations closely matched findings reported in public honeypot research and confirmed that switching from a high-numbered port to port 22 significantly improved data quality.
 
-Parsing
- parsecowrie.py implemented
- Raw JSON → structured CSV conversion
- Session-level feature extraction
+## Analysis Pipeline — File Overview
 
+The analysis pipeline is intentionally modular and transparent:
 
-🔜 To Be Done
-Data Engineering
- Normalize multiple log files
- Aggregate sessions by source IP
- Engineer higher-level behavioral features (rate, entropy, repetition)
+- **`ml/parsecowrie.py`**  
+  Parses raw Cowrie JSON logs and aggregates events into session-level records with extracted features.
 
-Analysis
- Bot vs interactive attacker heuristics
- Session clustering
- Temporal attack pattern analysis
+- **`data/processed/sessions.csv`**  
+  Clean intermediate dataset where each row represents a single SSH session.
 
-Machine Learning
- Feature scaling and encoding
- Unsupervised clustering (Isolation Forest / DBSCAN)
- Compare heuristic vs ML classification
+- **`ml/aggregate_attackers.py`**  
+  Aggregates session-level data by source IP to create attacker profiles with behavioral features.
 
-Visualization
- Session duration vs command count plots
- Source IP distribution maps
- SSH client fingerprint clustering
+- **`ml/label_attackers.py`**  
+  Applies simple rule-based labels (credential stuffing, scanning, interactive, unknown) to attacker profiles.
 
-Automation (Later Phase)
- Scheduled log transfer (scp / rsync)
- Incremental ingestion
- Optional message queue or object storage
+- **`ml/feature_matrix.py`**  
+  Builds a scaled feature matrix from labeled attacker data for machine learning.
 
-Expansion
+- **`ml/isolation_forest.py`**  
+  Trains and applies an Isolation Forest model to identify anomalous attackers based on behavioral features.
 
- Consider switching to port 22
- Add additional honeypot services
- Multi-node honeynet deployment
+- **`visual/figures.py`**  
+  Generates plots and summary statistics used to interpret attacker behavior and validate assumptions.
 
+This separation makes the pipeline easy to debug, extend, or adapt to other honeypot datasets.
+
+## Limitations and Future Work
+
+This project is exploratory and observational by design. It does not attempt attribution or real-time defense. Possible future extensions include:
+
+- Deploying multiple honeypot nodes in different regions
+- Longer-term data collection for trend analysis
+- Enriching IP data with ASN or geolocation metadata
+- Comparing behavior across different SSH honeypot configurations
