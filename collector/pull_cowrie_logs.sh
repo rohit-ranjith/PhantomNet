@@ -1,7 +1,7 @@
 #!/bin/bash
 
 AZURE_USER="azureuser"
-AZURE_IP="130.33.97.184"
+AZURE_IP="azure vm public ip"
 AZURE_DIR="/home/azureuser/cowrie_snapshots/"
 LOCAL_DIR="$HOME/phantomnet/data/raw/cowrie_snapshots/"
 
